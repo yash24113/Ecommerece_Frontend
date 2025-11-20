@@ -34,12 +34,18 @@ const collectionOptions = [
   { value: "explore", label: "Explore Products" },
 ];
 
+type CollectionFilter = "all" | "flash" | "best" | "explore" | "uncategorized";
+
 const AdminProducts: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [formData, setFormData] = useState<Product>({ ...emptyForm });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  const [collectionFilter, setCollectionFilter] =
+    useState<CollectionFilter>("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -201,6 +207,32 @@ const AdminProducts: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // ---------- FILTERED PRODUCTS ----------
+  const filteredProducts = products.filter((product) => {
+    const term = searchTerm.trim().toLowerCase();
+    const collections = product.collections || [];
+
+    const matchSearch =
+      term === "" || product.title.toLowerCase().includes(term);
+
+    let matchCollection = true;
+    if (collectionFilter === "uncategorized") {
+      matchCollection = collections.length === 0;
+    } else if (collectionFilter !== "all") {
+      matchCollection = collections.includes(collectionFilter);
+    }
+
+    return matchSearch && matchCollection;
+  });
+
+  const filterTabs: { value: CollectionFilter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "flash", label: "Flash" },
+    { value: "best", label: "Best" },
+    { value: "explore", label: "Explore" },
+    { value: "uncategorized", label: "Unassigned" },
+  ];
 
   return (
     <AdminLayout title="Products">
@@ -423,19 +455,49 @@ const AdminProducts: React.FC = () => {
               </Button>
             </div>
 
+            {/* Filters + Search */}
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-wrap gap-2">
+                {filterTabs.map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => setCollectionFilter(tab.value)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
+                      collectionFilter === tab.value
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="w-full md:w-64">
+                <input
+                  type="text"
+                  placeholder="Search by title..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm bg-background"
+                />
+              </div>
+            </div>
+
             {loading && (
               <p className="text-sm text-muted-foreground mb-3">
                 Loading products...
               </p>
             )}
 
-            {products.length === 0 && !loading ? (
+            {filteredProducts.length === 0 && !loading ? (
               <p className="text-sm text-muted-foreground">
-                No products found. Create one using the form.
+                No products found for current filters.
               </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {products.map((product) => (
+                {filteredProducts.map((product) => (
                   <div
                     key={product._id}
                     className="border border-border rounded-lg p-4 bg-card flex flex-col justify-between"
